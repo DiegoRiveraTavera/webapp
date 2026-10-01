@@ -1,0 +1,13 @@
+{
+  "name": "webapp-inventario",
+  "version": "1.0.0",
+  "description": "API de inventario (categorias y productos) - Practica DevOps Docker/EC2",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.3.0",
+    "express": "^4.19.2"
+  }
+}

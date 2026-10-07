@@ -2,11 +2,13 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const { db, DB_PATH, DATA_DIR } = require('./db');
+const { iniciarServidorSockets } = require('./socketServer');
 
 const app = express();
 app.use(express.json());
 
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 80;
+const SOCKET_PORT = process.env.SOCKET_PORT || 6061;
 
 // Respuesta estandarizada { statusCode, data }
 function respond(res, statusCode, data) {
@@ -94,21 +96,13 @@ app.delete('/api/productos/:id', (req, res) => {
 // ADMINISTRACION DE LA BASE DE DATOS (2 endpoints)
 // ============================================================
 
-// 9. GET /api/backup - respaldar la BD y descargarla
-app.get('/api/backup', (req, res) => {
+// 9. POST /api/backup - respaldar la BD
+app.post('/api/backup', (req, res) => {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const fileName = `backup-${timestamp}.db`;
-  const backupPath = path.join(DATA_DIR, fileName);
-
+  const backupPath = path.join(DATA_DIR, `backup-${timestamp}.db`);
   db.backup(backupPath)
     .then(() => {
-      res.download(backupPath, fileName, (err) => {
-        // Borra el archivo temporal del servidor después de enviarlo
-        fs.unlink(backupPath, () => {});
-        if (err && !res.headersSent) {
-          respond(res, 500, { mensaje: 'Error al descargar backup', error: err.message });
-        }
-      });
+      respond(res, 200, { mensaje: 'Backup creado', archivo: path.basename(backupPath) });
     })
     .catch((err) => {
       respond(res, 500, { mensaje: 'Error al crear backup', error: err.message });
@@ -134,5 +128,6 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`Base de datos en: ${DB_PATH}`);
 });
 
-// Servidor TCP (puerto 6061) en el mismo proceso
-require('./tcp');
+// Servidor de sockets TCP (protocolo {insert:<json>} / {get:<id>}),
+// corre en paralelo dentro del mismo proceso/contenedor.
+iniciarServidorSockets(SOCKET_PORT);

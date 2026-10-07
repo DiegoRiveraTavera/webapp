@@ -20,9 +20,13 @@ RUN npm install --omit=dev
 # Copiar el resto del codigo fuente
 COPY src ./src
 
-# Puerto en el que escucha la API dentro del contenedor
+# Puerto en el que escucha la API REST dentro del contenedor
 ENV PORT=80
-EXPOSE 80 6061
+EXPOSE 80
+
+# Puerto del servidor de sockets TCP ({insert:<json>} / {get:<id>})
+ENV SOCKET_PORT=6061
+EXPOSE 6061
 
 # Volumen para persistir la base de datos SQLite fuera del contenedor (opcional)
 VOLUME ["/app/data"]

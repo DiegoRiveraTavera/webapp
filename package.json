@@ -20,6 +20,7 @@
     "testEnvironment": "node",
     "setupFiles": ["<rootDir>/tests/jest.setup.js"],
     "collectCoverageFrom": ["src/app.js", "src/db.js"],
-    "coverageReporters": ["text", "lcov"]
+    "coverageReporters": ["text", "lcov"],
+    "coverageThreshold": { "global": { "statements": 70, "branches": 70, "functions": 70, "lines": 70 } }
   }
 }

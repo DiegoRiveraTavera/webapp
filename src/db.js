@@ -2,13 +2,16 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
+// DATA_DIR y DB_FILE se pueden sobreescribir por variables de entorno
+// (las pruebas usan una BD en memoria para no tocar datos reales).
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
-const DB_PATH = path.join(DATA_DIR, 'inventario.db');
-const db = new Database(DB_PATH);
+const DB_FILE = process.env.DB_FILE || path.join(DATA_DIR, 'inventario.db');
+const DB_PATH = DB_FILE;
+const db = new Database(DB_FILE);
 
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');

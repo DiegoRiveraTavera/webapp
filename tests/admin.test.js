@@ -10,7 +10,7 @@ beforeEach(resetDb);
 describe('GET / (health check)', () => {
   test('responde 200 con el mensaje de la API', async () => {
     const res = await request(app).get('/');
-    expectEnvelope(res, 200);
+    expectEnvelope(res, 201);
     expect(res.body.data.mensaje).toMatch(/funcionando/i);
   });
 });

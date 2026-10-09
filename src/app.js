@@ -192,7 +192,7 @@ app.delete('/api/reset', (req, res) => {
 
 // Endpoint raíz - para verificar rápidamente que la API responde
 app.get('/', (req, res) => {
-  respond(res, 200, { mensaje: 'API de funcionando correctamente' });
+  respond(res, 200, { mensaje: 'API funcionando correctamente' });
 });
 
 // ---------- Manejo de errores (siempre responde con { statusCode, data }) ----------

@@ -71,12 +71,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Notificar inicio de despliegue a OpenObserve
-        if: ${{ secrets.OPENOBSERVE_URL != '' }}
+        env:
+          OPENOBSERVE_URL: ${{ secrets.OPENOBSERVE_URL }}
+          OPENOBSERVE_ORG: ${{ secrets.OPENOBSERVE_ORG }}
+          OPENOBSERVE_AUTH: ${{ secrets.OPENOBSERVE_AUTH }}
         run: |
-          curl -s -o /dev/null -w "%{http_code}\n" -X POST "${{ secrets.OPENOBSERVE_URL }}/api/${{ secrets.OPENOBSERVE_ORG }}/pipeline_events/_json" \
-            -H "Authorization: Basic ${{ secrets.OPENOBSERVE_AUTH }}" \
+          if [ -z "$OPENOBSERVE_URL" ]; then
+            echo "OPENOBSERVE_URL no configurado, se omite la notificacion"
+            exit 0
+          fi
+          curl -s -o /dev/null -w "%{http_code}\n" -X POST "$OPENOBSERVE_URL/api/$OPENOBSERVE_ORG/pipeline_events/_json" \
+            -H "Authorization: Basic $OPENOBSERVE_AUTH" \
             -H "Content-Type: application/json" \
-            -d '[{"evento":"deploy_iniciado","commit":"${{ github.sha }}","branch":"${{ github.ref_name }}","usuario":"${{ github.actor }}","workflow":"${{ github.run_id }}"}]' || true
+            -d "[{\"evento\":\"deploy_iniciado\",\"commit\":\"${{ github.sha }}\",\"branch\":\"${{ github.ref_name }}\",\"usuario\":\"${{ github.actor }}\",\"workflow\":\"${{ github.run_id }}\"}]" || true
       - uses: northflank/deploy-to-northflank@v1
         with:
           northflank-api-key: ${{ secrets.NORTHFLANK_API_KEY }}
@@ -84,9 +91,16 @@ jobs:
           service-id: ${{ env.NF_SERVICE_ID }}
           image-path: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
       - name: Notificar despliegue completado a OpenObserve
-        if: ${{ secrets.OPENOBSERVE_URL != '' }}
+        env:
+          OPENOBSERVE_URL: ${{ secrets.OPENOBSERVE_URL }}
+          OPENOBSERVE_ORG: ${{ secrets.OPENOBSERVE_ORG }}
+          OPENOBSERVE_AUTH: ${{ secrets.OPENOBSERVE_AUTH }}
         run: |
-          curl -s -o /dev/null -w "%{http_code}\n" -X POST "${{ secrets.OPENOBSERVE_URL }}/api/${{ secrets.OPENOBSERVE_ORG }}/pipeline_events/_json" \
-            -H "Authorization: Basic ${{ secrets.OPENOBSERVE_AUTH }}" \
+          if [ -z "$OPENOBSERVE_URL" ]; then
+            echo "OPENOBSERVE_URL no configurado, se omite la notificacion"
+            exit 0
+          fi
+          curl -s -o /dev/null -w "%{http_code}\n" -X POST "$OPENOBSERVE_URL/api/$OPENOBSERVE_ORG/pipeline_events/_json" \
+            -H "Authorization: Basic $OPENOBSERVE_AUTH" \
             -H "Content-Type: application/json" \
-            -d '[{"evento":"deploy_completado","commit":"${{ github.sha }}","branch":"${{ github.ref_name }}","usuario":"${{ github.actor }}","workflow":"${{ github.run_id }}"}]' || true
+            -d "[{\"evento\":\"deploy_completado\",\"commit\":\"${{ github.sha }}\",\"branch\":\"${{ github.ref_name }}\",\"usuario\":\"${{ github.actor }}\",\"workflow\":\"${{ github.run_id }}\"}]" || true

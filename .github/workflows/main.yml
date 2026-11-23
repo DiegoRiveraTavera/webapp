@@ -7,8 +7,6 @@ on:
 
 env:
   IMAGE_NAME: webapp
-  NF_PROJECT_ID: webapp-devops
-  NF_SERVICE_ID: webapp-api
 
 jobs:
   # 1) Pruebas unitarias (Jest + Supertest) sobre la API
@@ -63,8 +61,10 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
-  # 4) Despliega en Northflank (reemplaza a AWS EC2 en este proyecto, con
-  #    autorizacion del docente, por bloqueos repetidos de cuentas de AWS)
+  # 4) Despliega en Render.com (reemplaza a AWS EC2 en este proyecto, con
+  #    autorizacion del docente, por bloqueos repetidos de cuentas de AWS;
+  #    tambien se evaluo Northflank, pero la cuenta quedo bloqueada por
+  #    facturacion y la tarjeta asociada impedia abrir una cuenta nueva ahi)
   deploy:
     needs: docker
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -84,12 +84,15 @@ jobs:
             -H "Authorization: Basic $OPENOBSERVE_AUTH" \
             -H "Content-Type: application/json" \
             -d "[{\"evento\":\"deploy_iniciado\",\"commit\":\"${{ github.sha }}\",\"branch\":\"${{ github.ref_name }}\",\"usuario\":\"${{ github.actor }}\",\"workflow\":\"${{ github.run_id }}\"}]" || true
-      - uses: northflank/deploy-to-northflank@v1
-        with:
-          northflank-api-key: ${{ secrets.NORTHFLANK_API_KEY }}
-          project-id: ${{ env.NF_PROJECT_ID }}
-          service-id: ${{ env.NF_SERVICE_ID }}
-          image-path: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+      - name: Disparar redeploy en Render (jala la imagen :latest recien publicada)
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "RENDER_DEPLOY_HOOK_URL no configurado"
+            exit 1
+          fi
+          curl -fsS -X POST "$RENDER_DEPLOY_HOOK_URL"
       - name: Notificar despliegue completado a OpenObserve
         env:
           OPENOBSERVE_URL: ${{ secrets.OPENOBSERVE_URL }}

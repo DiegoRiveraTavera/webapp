@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Inventario UTEQ - Usuarios</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div id="barra"></div>
+  <div class="contenedor">
+    <h2>Usuarios</h2>
+    <form id="form-usuario" class="inline">
+      <input id="u-username" placeholder="Username" required />
+      <input id="u-password" placeholder="Password (min 6)" type="password" required />
+      <select id="u-rol">
+        <option value="operador">operador</option>
+        <option value="admin">admin</option>
+      </select>
+      <button class="principal" type="submit">Crear usuario</button>
+    </form>
+    <p id="mensaje"></p>
+
+    <table id="tabla-usuarios">
+      <thead><tr><th>ID</th><th>Username</th><th>Rol</th><th>Acciones</th></tr></thead>
+      <tbody id="cuerpo-usuarios"></tbody>
+    </table>
+  </div>
+
+  <script src="/common.js"></script>
+  <script>
+    exigirSesion();
+    montarBarra('usuarios');
+
+    async function cargarUsuarios() {
+      const { status, body } = await apiFetch('/api/usuarios');
+      const mensaje = document.getElementById('mensaje');
+      if (status === 403) {
+        mensaje.textContent = 'Solo un administrador puede ver esta pagina';
+        mensaje.className = 'error';
+        document.getElementById('form-usuario').style.display = 'none';
+        return;
+      }
+      const cuerpo = document.getElementById('cuerpo-usuarios');
+      cuerpo.innerHTML = body.data.map(u => `
+        <tr data-id="${u.id}">
+          <td>${u.id}</td><td>${u.username}</td><td>${u.rol}</td>
+          <td><button class="btn-eliminar" data-id="${u.id}">Eliminar</button></td>
+        </tr>`).join('');
+      cuerpo.querySelectorAll('.btn-eliminar').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const { status, body } = await apiFetch(`/api/usuarios/${btn.dataset.id}`, { method: 'DELETE' });
+          if (status !== 200) {
+            mensaje.textContent = body?.data?.mensaje || 'Error al eliminar';
+            mensaje.className = 'error';
+          }
+          cargarUsuarios();
+        });
+      });
+    }
+
+    document.getElementById('form-usuario').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('u-username').value.trim();
+      const password = document.getElementById('u-password').value;
+      const rol = document.getElementById('u-rol').value;
+      const { status, body } = await apiFetch('/api/usuarios', {
+        method: 'POST',
+        body: JSON.stringify({ username, password, rol }),
+      });
+      const mensaje = document.getElementById('mensaje');
+      if (status === 201) {
+        mensaje.textContent = 'Usuario creado'; mensaje.className = 'ok';
+        document.getElementById('u-username').value = '';
+        document.getElementById('u-password').value = '';
+        cargarUsuarios();
+      } else {
+        mensaje.textContent = body?.data?.mensaje || 'Error'; mensaje.className = 'error';
+      }
+    });
+
+    cargarUsuarios();
+  </script>
+</body>
+</html>

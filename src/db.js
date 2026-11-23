@@ -32,6 +32,26 @@ db.exec(`
     categoria_id INTEGER NOT NULL,
     FOREIGN KEY (categoria_id) REFERENCES categorias(id) ON DELETE CASCADE
   );
+
+  CREATE TABLE IF NOT EXISTS usuarios (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    rol TEXT NOT NULL DEFAULT 'operador',
+    creado_en TEXT NOT NULL DEFAULT (datetime('now'))
+  );
 `);
+
+// Semilla: si no hay ningun usuario, crea un admin por defecto para poder
+// iniciar sesion la primera vez. Password se puede sobreescribir por env.
+const bcrypt = require('bcryptjs');
+const existeAlguno = db.prepare('SELECT COUNT(*) AS n FROM usuarios').get().n;
+if (existeAlguno === 0) {
+  const adminUser = process.env.ADMIN_USERNAME || 'admin';
+  const adminPass = process.env.ADMIN_PASSWORD || 'admin123';
+  const hash = bcrypt.hashSync(adminPass, 10);
+  db.prepare('INSERT INTO usuarios (username, password_hash, rol) VALUES (?, ?, ?)')
+    .run(adminUser, hash, 'admin');
+}
 
 module.exports = { db, DB_PATH, DATA_DIR };

@@ -1,0 +1,16 @@
+body { font-family: Arial, sans-serif; margin: 0; background: #f4f6f8; color: #222; }
+#barra { display: flex; align-items: center; gap: 16px; background: #0b3d91; color: white; padding: 12px 20px; }
+#barra a { color: white; text-decoration: none; }
+#barra a.activo { text-decoration: underline; font-weight: bold; }
+#barra #usuario-actual { margin-left: auto; opacity: 0.9; }
+#barra button { background: #cc3333; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
+.contenedor { max-width: 900px; margin: 24px auto; padding: 0 16px; }
+.login-caja { max-width: 360px; margin: 80px auto; background: white; padding: 24px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+input, select { width: 100%; padding: 8px; margin: 6px 0 14px; box-sizing: border-box; }
+button.principal { background: #0b3d91; color: white; border: none; padding: 10px 16px; border-radius: 4px; cursor: pointer; }
+table { width: 100%; border-collapse: collapse; background: white; margin-top: 16px; }
+th, td { padding: 8px 10px; border-bottom: 1px solid #ddd; text-align: left; }
+.error { color: #b00020; margin-top: 8px; }
+.ok { color: #0a7a2f; margin-top: 8px; }
+form.inline { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+form.inline input, form.inline select { width: auto; margin: 0; }

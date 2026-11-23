@@ -1,6 +1,6 @@
 const request = require('supertest');
 const app = require('../src/app');
-const { resetDb, expectEnvelope, crearCategoria, crearProducto, db } = require('./helpers');
+const { resetDb, expectEnvelope, crearCategoria, crearProducto, db, authHeader } = require('./helpers');
 
 beforeEach(resetDb);
 
@@ -43,44 +43,44 @@ describe('GET /api/categorias/:id', () => {
 
 describe('POST /api/categorias', () => {
   test('crea una categoría y responde 201', async () => {
-    const res = await request(app).post('/api/categorias').send({ nombre: 'Juguetes', descripcion: 'Niños' });
+    const res = await request(app).post('/api/categorias').set(authHeader).send({ nombre: 'Juguetes', descripcion: 'Niños' });
     expectEnvelope(res, 201);
     expect(res.body.data).toEqual({ id: 1, nombre: 'Juguetes', descripcion: 'Niños' });
   });
 
   test('descripcion es opcional y se guarda como null', async () => {
-    const res = await request(app).post('/api/categorias').send({ nombre: 'Libros' });
+    const res = await request(app).post('/api/categorias').set(authHeader).send({ nombre: 'Libros' });
     expectEnvelope(res, 201);
     expect(res.body.data.descripcion).toBeNull();
   });
 
   test('recorta espacios del nombre', async () => {
-    const res = await request(app).post('/api/categorias').send({ nombre: '  Deportes  ' });
+    const res = await request(app).post('/api/categorias').set(authHeader).send({ nombre: '  Deportes  ' });
     expectEnvelope(res, 201);
     expect(res.body.data.nombre).toBe('Deportes');
   });
 
   test('ERROR: 400 si falta "nombre"', async () => {
-    const res = await request(app).post('/api/categorias').send({ descripcion: 'sin nombre' });
+    const res = await request(app).post('/api/categorias').set(authHeader).send({ descripcion: 'sin nombre' });
     expectEnvelope(res, 400);
   });
 
   test('ERROR: 400 si el body está vacío', async () => {
-    const res = await request(app).post('/api/categorias');
+    const res = await request(app).post('/api/categorias').set(authHeader);
     expectEnvelope(res, 400);
   });
 
   test.each([['solo espacios', '   '], ['número', 123], ['arreglo', ['a']], ['objeto', { a: 1 }], ['null', null]])(
     'ERROR: 400 si "nombre" es inválido (%s)',
     async (_, valor) => {
-      const res = await request(app).post('/api/categorias').send({ nombre: valor });
+      const res = await request(app).post('/api/categorias').set(authHeader).send({ nombre: valor });
       expectEnvelope(res, 400);
     }
   );
 
   test('ERROR: 400 si el JSON está mal formado', async () => {
     const res = await request(app)
-      .post('/api/categorias')
+      .post('/api/categorias').set(authHeader)
       .set('Content-Type', 'application/json')
       .send('{"nombre": "roto"');
     expectEnvelope(res, 400);
@@ -89,7 +89,7 @@ describe('POST /api/categorias', () => {
 
   test('ERROR: 409 si el nombre ya existe (UNIQUE)', async () => {
     crearCategoria('Duplicada');
-    const res = await request(app).post('/api/categorias').send({ nombre: 'Duplicada' });
+    const res = await request(app).post('/api/categorias').set(authHeader).send({ nombre: 'Duplicada' });
     expectEnvelope(res, 409);
   });
 });
@@ -97,7 +97,7 @@ describe('POST /api/categorias', () => {
 describe('PUT /api/categorias/:id', () => {
   test('actualiza nombre y descripción', async () => {
     const id = crearCategoria('Vieja', 'x');
-    const res = await request(app).put(`/api/categorias/${id}`).send({ nombre: 'Nueva', descripcion: 'y' });
+    const res = await request(app).put(`/api/categorias/${id}`).set(authHeader).send({ nombre: 'Nueva', descripcion: 'y' });
     expectEnvelope(res, 200);
     expect(res.body.data).toEqual({ id, nombre: 'Nueva', descripcion: 'y' });
     expect(db.prepare('SELECT nombre FROM categorias WHERE id = ?').get(id).nombre).toBe('Nueva');
@@ -105,30 +105,30 @@ describe('PUT /api/categorias/:id', () => {
 
   test('permite conservar el mismo nombre (no cuenta como duplicado)', async () => {
     const id = crearCategoria('Igual');
-    const res = await request(app).put(`/api/categorias/${id}`).send({ nombre: 'Igual', descripcion: 'cambio' });
+    const res = await request(app).put(`/api/categorias/${id}`).set(authHeader).send({ nombre: 'Igual', descripcion: 'cambio' });
     expectEnvelope(res, 200);
   });
 
   test('ERROR: 404 si la categoría no existe', async () => {
-    const res = await request(app).put('/api/categorias/999').send({ nombre: 'X' });
+    const res = await request(app).put('/api/categorias/999').set(authHeader).send({ nombre: 'X' });
     expectEnvelope(res, 404);
   });
 
   test('ERROR: 400 si falta "nombre"', async () => {
     const id = crearCategoria('A');
-    const res = await request(app).put(`/api/categorias/${id}`).send({ descripcion: 'solo desc' });
+    const res = await request(app).put(`/api/categorias/${id}`).set(authHeader).send({ descripcion: 'solo desc' });
     expectEnvelope(res, 400);
   });
 
   test('ERROR: 400 si el id es inválido', async () => {
-    const res = await request(app).put('/api/categorias/abc').send({ nombre: 'X' });
+    const res = await request(app).put('/api/categorias/abc').set(authHeader).send({ nombre: 'X' });
     expectEnvelope(res, 400);
   });
 
   test('ERROR: 409 si el nuevo nombre pertenece a otra categoría', async () => {
     crearCategoria('Uno');
     const id2 = crearCategoria('Dos');
-    const res = await request(app).put(`/api/categorias/${id2}`).send({ nombre: 'Uno' });
+    const res = await request(app).put(`/api/categorias/${id2}`).set(authHeader).send({ nombre: 'Uno' });
     expectEnvelope(res, 409);
   });
 });
@@ -136,7 +136,7 @@ describe('PUT /api/categorias/:id', () => {
 describe('DELETE /api/categorias/:id', () => {
   test('elimina la categoría y ya no se puede consultar', async () => {
     const id = crearCategoria('Temporal');
-    const del = await request(app).delete(`/api/categorias/${id}`);
+    const del = await request(app).delete(`/api/categorias/${id}`).set(authHeader);
     expectEnvelope(del, 200);
     expect(del.body.data).toEqual({ mensaje: 'Categoría eliminada', id });
 
@@ -148,23 +148,23 @@ describe('DELETE /api/categorias/:id', () => {
     const id = crearCategoria('ConProductos');
     crearProducto('P1', 10, 1, id);
     crearProducto('P2', 20, 2, id);
-    await request(app).delete(`/api/categorias/${id}`);
+    await request(app).delete(`/api/categorias/${id}`).set(authHeader);
     expect(db.prepare('SELECT COUNT(*) AS n FROM productos').get().n).toBe(0);
   });
 
   test('ERROR: 404 si la categoría no existe', async () => {
-    const res = await request(app).delete('/api/categorias/999');
+    const res = await request(app).delete('/api/categorias/999').set(authHeader);
     expectEnvelope(res, 404);
   });
 
   test('ERROR: 400 si el id es inválido', async () => {
-    const res = await request(app).delete('/api/categorias/xyz');
+    const res = await request(app).delete('/api/categorias/xyz').set(authHeader);
     expectEnvelope(res, 400);
   });
 
   test('ERROR: borrar dos veces la misma categoría devuelve 404 la segunda vez', async () => {
     const id = crearCategoria('Doble');
-    expectEnvelope(await request(app).delete(`/api/categorias/${id}`), 200);
-    expectEnvelope(await request(app).delete(`/api/categorias/${id}`), 404);
+    expectEnvelope(await request(app).delete(`/api/categorias/${id}`).set(authHeader), 200);
+    expectEnvelope(await request(app).delete(`/api/categorias/${id}`).set(authHeader), 404);
   });
 });

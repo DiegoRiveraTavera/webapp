@@ -1,6 +1,6 @@
 const request = require('supertest');
 const app = require('../src/app');
-const { resetDb, expectEnvelope, crearCategoria, crearProducto, db } = require('./helpers');
+const { resetDb, expectEnvelope, crearCategoria, crearProducto, db, authHeader } = require('./helpers');
 
 beforeEach(() => {
   resetDb();
@@ -47,20 +47,20 @@ describe('POST /api/productos', () => {
   const valido = { nombre: 'Teclado', precio: 899.99, stock: 3, categoria_id: 1 };
 
   test('crea un producto y responde 201', async () => {
-    const res = await request(app).post('/api/productos').send(valido);
+    const res = await request(app).post('/api/productos').set(authHeader).send(valido);
     expectEnvelope(res, 201);
     expect(res.body.data).toEqual({ id: 1, ...valido });
   });
 
   test('stock es opcional y vale 0 por defecto', async () => {
     const { stock, ...sinStock } = valido;
-    const res = await request(app).post('/api/productos').send(sinStock);
+    const res = await request(app).post('/api/productos').set(authHeader).send(sinStock);
     expectEnvelope(res, 201);
     expect(res.body.data.stock).toBe(0);
   });
 
   test('acepta precio 0 (límite válido)', async () => {
-    const res = await request(app).post('/api/productos').send({ ...valido, precio: 0 });
+    const res = await request(app).post('/api/productos').set(authHeader).send({ ...valido, precio: 0 });
     expectEnvelope(res, 201);
   });
 
@@ -70,7 +70,7 @@ describe('POST /api/productos', () => {
     ['sin categoria_id', { nombre: 'X', precio: 10 }],
     ['body vacío', {}],
   ])('ERROR: 400 con campos faltantes (%s)', async (_, body) => {
-    const res = await request(app).post('/api/productos').send(body);
+    const res = await request(app).post('/api/productos').set(authHeader).send(body);
     expectEnvelope(res, 400);
     expect(res.body.data.mensaje).toMatch(/requeridos/);
   });
@@ -87,19 +87,19 @@ describe('POST /api/productos', () => {
     ['categoria_id decimal', { ...valido, categoria_id: 1.5 }],
     ['categoria_id negativo', { ...valido, categoria_id: -1 }],
   ])('ERROR: 400 con datos inválidos (%s)', async (_, body) => {
-    const res = await request(app).post('/api/productos').send(body);
+    const res = await request(app).post('/api/productos').set(authHeader).send(body);
     expectEnvelope(res, 400);
   });
 
   test('ERROR: 400 si la categoría no existe (integridad referencial)', async () => {
-    const res = await request(app).post('/api/productos').send({ ...valido, categoria_id: 999 });
+    const res = await request(app).post('/api/productos').set(authHeader).send({ ...valido, categoria_id: 999 });
     expectEnvelope(res, 400);
     expect(res.body.data.mensaje).toMatch(/no existe/);
     expect(db.prepare('SELECT COUNT(*) AS n FROM productos').get().n).toBe(0);
   });
 
   test('ERROR: 400 si el JSON está mal formado', async () => {
-    const res = await request(app).post('/api/productos').set('Content-Type', 'application/json').send('{nombre:');
+    const res = await request(app).post('/api/productos').set(authHeader).set('Content-Type', 'application/json').send('{nombre:');
     expectEnvelope(res, 400);
   });
 });
@@ -109,7 +109,7 @@ describe('PUT /api/productos/:id', () => {
 
   test('actualiza todos los campos del producto', async () => {
     const id = crearProducto('Laptop', 15000, 5, 1);
-    const res = await request(app).put(`/api/productos/${id}`).send(cambios);
+    const res = await request(app).put(`/api/productos/${id}`).set(authHeader).send(cambios);
     expectEnvelope(res, 200);
     expect(res.body.data).toEqual({ id, ...cambios });
   });
@@ -117,37 +117,37 @@ describe('PUT /api/productos/:id', () => {
   test('permite mover el producto a otra categoría', async () => {
     const id = crearProducto('Laptop', 15000, 5, 1);
     const cat2 = crearCategoria('Oficina');
-    const res = await request(app).put(`/api/productos/${id}`).send({ ...cambios, categoria_id: Number(cat2) });
+    const res = await request(app).put(`/api/productos/${id}`).set(authHeader).send({ ...cambios, categoria_id: Number(cat2) });
     expectEnvelope(res, 200);
     expect(res.body.data.categoria_id).toBe(Number(cat2));
   });
 
   test('ERROR: 404 si el producto no existe', async () => {
-    const res = await request(app).put('/api/productos/999').send(cambios);
+    const res = await request(app).put('/api/productos/999').set(authHeader).send(cambios);
     expectEnvelope(res, 404);
   });
 
   test('ERROR: 400 si el id es inválido', async () => {
-    const res = await request(app).put('/api/productos/abc').send(cambios);
+    const res = await request(app).put('/api/productos/abc').set(authHeader).send(cambios);
     expectEnvelope(res, 400);
   });
 
   test('ERROR: 400 si faltan campos requeridos', async () => {
     const id = crearProducto();
-    const res = await request(app).put(`/api/productos/${id}`).send({ nombre: 'Solo nombre' });
+    const res = await request(app).put(`/api/productos/${id}`).set(authHeader).send({ nombre: 'Solo nombre' });
     expectEnvelope(res, 400);
   });
 
   test('ERROR: 400 si el precio es inválido y no modifica el registro', async () => {
     const id = crearProducto('Laptop', 15000, 5, 1);
-    const res = await request(app).put(`/api/productos/${id}`).send({ ...cambios, precio: 'gratis' });
+    const res = await request(app).put(`/api/productos/${id}`).set(authHeader).send({ ...cambios, precio: 'gratis' });
     expectEnvelope(res, 400);
     expect(db.prepare('SELECT precio FROM productos WHERE id = ?').get(id).precio).toBe(15000);
   });
 
   test('ERROR: 400 si la nueva categoría no existe', async () => {
     const id = crearProducto();
-    const res = await request(app).put(`/api/productos/${id}`).send({ ...cambios, categoria_id: 999 });
+    const res = await request(app).put(`/api/productos/${id}`).set(authHeader).send({ ...cambios, categoria_id: 999 });
     expectEnvelope(res, 400);
   });
 });
@@ -155,7 +155,7 @@ describe('PUT /api/productos/:id', () => {
 describe('DELETE /api/productos/:id', () => {
   test('elimina el producto y ya no se puede consultar', async () => {
     const id = crearProducto();
-    const del = await request(app).delete(`/api/productos/${id}`);
+    const del = await request(app).delete(`/api/productos/${id}`).set(authHeader);
     expectEnvelope(del, 200);
     expect(del.body.data).toEqual({ mensaje: 'Producto eliminado', id });
     expectEnvelope(await request(app).get(`/api/productos/${id}`), 404);
@@ -163,15 +163,15 @@ describe('DELETE /api/productos/:id', () => {
 
   test('no elimina la categoría al borrar su producto', async () => {
     const id = crearProducto();
-    await request(app).delete(`/api/productos/${id}`);
+    await request(app).delete(`/api/productos/${id}`).set(authHeader);
     expect(db.prepare('SELECT COUNT(*) AS n FROM categorias').get().n).toBe(1);
   });
 
   test('ERROR: 404 si no existe', async () => {
-    expectEnvelope(await request(app).delete('/api/productos/999'), 404);
+    expectEnvelope(await request(app).delete('/api/productos/999').set(authHeader), 404);
   });
 
   test('ERROR: 400 si el id es inválido', async () => {
-    expectEnvelope(await request(app).delete('/api/productos/abc'), 400);
+    expectEnvelope(await request(app).delete('/api/productos/abc').set(authHeader), 400);
   });
 });

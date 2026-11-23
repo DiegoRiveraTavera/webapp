@@ -11,6 +11,7 @@ env:
   NF_SERVICE_ID: webapp-api
 
 jobs:
+  # 1) Pruebas unitarias (Jest + Supertest) sobre la API
   test:
     runs-on: ubuntu-latest
     steps:
@@ -20,8 +21,31 @@ jobs:
       - run: npm ci
       - run: npm run test:coverage
 
-  docker:
+  # 2) Pruebas E2E (Playwright) de Frontend + Backend. Si fallan, NO se
+  #    publica la imagen ni se despliega (ver "needs" en los jobs docker/deploy).
+  e2e:
     needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+        env:
+          ADMIN_USERNAME: admin
+          ADMIN_PASSWORD: admin123
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  # 3) Construye y publica la imagen Docker (solo si test Y e2e pasaron)
+  docker:
+    needs: [test, e2e]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
@@ -39,14 +63,30 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
+  # 4) Despliega en Northflank (reemplaza a AWS EC2 en este proyecto, con
+  #    autorizacion del docente, por bloqueos repetidos de cuentas de AWS)
   deploy:
     needs: docker
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
+      - name: Notificar inicio de despliegue a OpenObserve
+        if: ${{ secrets.OPENOBSERVE_URL != '' }}
+        run: |
+          curl -s -o /dev/null -w "%{http_code}\n" -X POST "${{ secrets.OPENOBSERVE_URL }}/api/${{ secrets.OPENOBSERVE_ORG }}/pipeline_events/_json" \
+            -H "Authorization: Basic ${{ secrets.OPENOBSERVE_AUTH }}" \
+            -H "Content-Type: application/json" \
+            -d '[{"evento":"deploy_iniciado","commit":"${{ github.sha }}","branch":"${{ github.ref_name }}","usuario":"${{ github.actor }}","workflow":"${{ github.run_id }}"}]' || true
       - uses: northflank/deploy-to-northflank@v1
         with:
           northflank-api-key: ${{ secrets.NORTHFLANK_API_KEY }}
           project-id: ${{ env.NF_PROJECT_ID }}
           service-id: ${{ env.NF_SERVICE_ID }}
           image-path: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+      - name: Notificar despliegue completado a OpenObserve
+        if: ${{ secrets.OPENOBSERVE_URL != '' }}
+        run: |
+          curl -s -o /dev/null -w "%{http_code}\n" -X POST "${{ secrets.OPENOBSERVE_URL }}/api/${{ secrets.OPENOBSERVE_ORG }}/pipeline_events/_json" \
+            -H "Authorization: Basic ${{ secrets.OPENOBSERVE_AUTH }}" \
+            -H "Content-Type: application/json" \
+            -d '[{"evento":"deploy_completado","commit":"${{ github.sha }}","branch":"${{ github.ref_name }}","usuario":"${{ github.actor }}","workflow":"${{ github.run_id }}"}]' || true
